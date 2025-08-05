@@ -57,6 +57,26 @@
       border: none;
       width: 100%;
     }
+    button {
+  background-color: #2d2d2d;
+  color: #eee;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+button:hover {
+  background-color: #444;
+}
+
+button:active {
+  background-color: #555;
+  transform: scale(0.98);
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
   </style>
 </head>
 <body>
@@ -94,13 +114,17 @@
     });
 
     window.loadTable = async () => {
-      const table = tableSelect.value;
-      const res = await fetch(`${API_BASE}?table=${table}`, {
-        headers: { "Authorization": AUTH_HEADER }
-      });
-      const data = await res.json();
-      renderTable(data, table);
-    };
+  const table = tableSelect.value;
+  const res = await fetch(`${API_BASE}?table=${table}`, {
+    method: "GET",
+    headers: {
+      "Authorization": AUTH_HEADER
+    },
+    mode: "cors"
+  });
+  const data = await res.json();
+  renderTable(data, table);
+};
 
     function renderTable(data, table) {
       if (!Array.isArray(data)) return;
