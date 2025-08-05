@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Supabase CRM GUI</title>
   <style>
     body {
@@ -51,6 +51,12 @@
       border-radius: 4px;
       padding: 10px;
     }
+    td input {
+      background-color: #1e1e1e;
+      color: #eee;
+      border: none;
+      width: 100%;
+    }
   </style>
 </head>
 <body>
@@ -60,17 +66,12 @@
     <select id="tableSelect"></select>
     <button onclick="loadTable()">Load</button>
 
-    <h3>Insert or Update JSON</h3>
-    <textarea id="jsonInput" class="json-input" placeholder='{"field": "value"}'></textarea><br>
-    <button onclick="createRow()">Create</button>
-    <button onclick="updateRow()">Update (match + update)</button>
-
     <table id="dataTable"></table>
   </div>
 
   <script type="module">
     const API_BASE = "https://vhamddptyjmhkieiscml.functions.supabase.co/generic_crud";
-    const AUTH_HEADER = "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZoYW1kZHB0eWptaGtpZWlzY21sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTMzMjgwNTIsImV4cCI6MjA2ODkwNDA1Mn0.NwKG34jNNEhEW5RKwikAoIvUxzfIL8FuYJptNJB5D_Y";
+    const AUTH_HEADER = "Bearer YOUR_ANON_KEY"; // Use anon key for frontend
 
     const tables = [
       "clients",
@@ -84,7 +85,6 @@
 
     const tableSelect = document.getElementById("tableSelect");
     const dataTable = document.getElementById("dataTable");
-    const jsonInput = document.getElementById("jsonInput");
 
     tables.forEach(t => {
       const opt = document.createElement("option");
@@ -99,48 +99,48 @@
         headers: { "Authorization": AUTH_HEADER }
       });
       const data = await res.json();
-      renderTable(data);
+      renderTable(data, table);
     };
 
-    function renderTable(data) {
+    function renderTable(data, table) {
       if (!Array.isArray(data)) return;
       const headers = new Set();
       data.forEach(row => Object.keys(row).forEach(k => headers.add(k)));
 
       const thead = `<tr>${[...headers].map(h => `<th>${h}</th>`).join("")}<th>Actions</th></tr>`;
       const tbody = data.map(row => {
-        const rowHTML = [...headers].map(h => `<td>${format(row[h])}</td>`).join("");
+        const rowId = row.id;
+        const rowHTML = [...headers].map(h => {
+          const val = row[h] !== null ? row[h] : "";
+          return `<td><input value='${escapeQuotes(val)}' data-key='${h}' data-id='${rowId}' /></td>`;
+        }).join("");
+
         return `<tr>${rowHTML}<td class="actions">
-          <button onclick='deleteRow("${row.id}")'>Delete</button>
+          <button onclick='saveRow("${rowId}", "${table}")'>Save</button>
+          <button onclick='deleteRow("${rowId}", "${table}")'>Delete</button>
         </td></tr>`;
       }).join("");
 
       dataTable.innerHTML = thead + tbody;
     }
 
-    function format(value) {
-      if (typeof value === 'object') return JSON.stringify(value);
-      return value;
+    function escapeQuotes(value) {
+      if (typeof value === 'object') return JSON.stringify(value).replace(/'/g, "&apos;");
+      return String(value).replace(/'/g, "&apos;");
     }
 
-    window.createRow = async () => {
-      const table = tableSelect.value;
-      const body = JSON.parse(jsonInput.value);
-      const res = await fetch(`${API_BASE}?table=${table}`, {
-        method: "POST",
-        headers: {
-          "Authorization": AUTH_HEADER,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify(body)
+    window.saveRow = async (id, table) => {
+      const inputs = document.querySelectorAll(`input[data-id='${id}']`);
+      const update = {};
+      inputs.forEach(input => {
+        try {
+          update[input.dataset.key] = JSON.parse(input.value);
+        } catch (e) {
+          update[input.dataset.key] = input.value;
+        }
       });
-      await loadTable();
-    };
-
-    window.updateRow = async () => {
-      const table = tableSelect.value;
-      const body = JSON.parse(jsonInput.value);
-      const res = await fetch(`${API_BASE}?table=${table}`, {
+      const body = { match: { id }, update };
+      await fetch(`${API_BASE}?table=${table}`, {
         method: "PUT",
         headers: {
           "Authorization": AUTH_HEADER,
@@ -148,13 +148,12 @@
         },
         body: JSON.stringify(body)
       });
-      await loadTable();
+      loadTable();
     };
 
-    window.deleteRow = async (id) => {
-      const table = tableSelect.value;
+    window.deleteRow = async (id, table) => {
       const body = { match: { id } };
-      const res = await fetch(`${API_BASE}?table=${table}`, {
+      await fetch(`${API_BASE}?table=${table}`, {
         method: "DELETE",
         headers: {
           "Authorization": AUTH_HEADER,
@@ -162,7 +161,7 @@
         },
         body: JSON.stringify(body)
       });
-      await loadTable();
+      loadTable();
     };
   </script>
 </body>
