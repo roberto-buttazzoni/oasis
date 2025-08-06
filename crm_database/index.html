@@ -191,17 +191,21 @@
       });
     };
 
-    // Init
-    tables.forEach(t => {
-      const opt = document.createElement("option");
-      opt.value = t;
-      opt.innerText = t;
-      tableSelect.appendChild(opt);
-    });
+    document.addEventListener("DOMContentLoaded", async () => {
+  tables.forEach(t => {
+    const opt = document.createElement("option");
+    opt.value = t;
+    opt.innerText = t;
+    tableSelect.appendChild(opt);
+  });
 
-    tableSelect.addEventListener("change", () => {
-      loadTable(tableSelect.value);
-    });
+  tableSelect.addEventListener("change", () => {
+    loadTable(tableSelect.value);
+  });
+
+  tableSelect.value = tables[0];
+  await loadTable(tables[0]);
+});
 
     // Load first table on start
     loadTable(tables[0]);
