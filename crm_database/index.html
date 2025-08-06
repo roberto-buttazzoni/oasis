@@ -7,85 +7,81 @@
   <style>
     body {
       margin: 0;
-      padding: 0;
-      font-family: Arial, sans-serif;
+      font-family: sans-serif;
       background-color: #121212;
       color: #eee;
     }
     .container {
       padding: 20px;
     }
-    select, button {
-      padding: 8px;
-      margin: 5px;
+    select {
+      padding: 10px;
       border: none;
       border-radius: 4px;
-      background-color: #2d2d2d;
-      color: #eee;
-      cursor: pointer;
+      background: #1f1f1f;
+      color: #fff;
     }
-    button:hover {
-      background-color: #444;
+    .loading {
+      text-align: center;
+      margin-top: 50px;
+      font-size: 1.2rem;
+      color: #888;
     }
-    button:active {
-      background-color: #555;
-      transform: scale(0.98);
-    }
-    .crm-card {
-      display: flex;
-      flex-direction: column;
-      background-color: #1e1e1e;
-      border: 1px solid #333;
-      border-radius: 8px;
+    .card {
+      background: #1e1e1e;
+      margin-bottom: 16px;
       padding: 16px;
-      margin-bottom: 12px;
+      border-radius: 10px;
+      border: 1px solid #2c2c2c;
     }
-    .crm-header {
+    .card-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
       margin-bottom: 10px;
     }
-    .crm-actions select {
-      background-color: #2d2d2d;
-      color: #eee;
+    .card-header small {
+      font-size: 0.75rem;
+      color: #888;
     }
-    .crm-row {
+    .card-fields {
       display: flex;
       flex-wrap: wrap;
+      gap: 20px;
     }
-    .crm-field {
+    .field {
       width: 200px;
-      margin: 4px 16px 4px 0;
     }
-    .crm-field label {
-      font-size: 0.85rem;
-      color: #bbb;
+    .field label {
       display: block;
+      font-size: 0.8rem;
+      margin-bottom: 4px;
+      color: #aaa;
     }
-    .crm-field input {
-      width: 100%;
-      padding: 4px;
-      background-color: #2a2a2a;
-      color: #eee;
-      border: none;
+    .field-value {
+      background: #2a2a2a;
+      padding: 6px;
       border-radius: 4px;
+      font-size: 0.9rem;
+    }
+    select.action-menu {
+      background: #333;
+      color: #fff;
     }
   </style>
 </head>
 <body>
   <div class="container">
-    <h1>Supabase CRM GUI</h1>
+    <h2>Supabase CRM Dashboard</h2>
     <label for="tableSelect">Select Table:</label>
     <select id="tableSelect"></select>
-    <button onclick="loadTable()">Load</button>
-
-    <div id="cardsContainer"></div>
+    <div id="loader" class="loading">Loading...</div>
+    <div id="cardContainer"></div>
   </div>
 
   <script type="module">
     const API_BASE = "https://vhamddptyjmhkieiscml.functions.supabase.co/generic_crud";
-    const AUTH_HEADER = "Bearer YOUR_ANON_KEY"; // Replace with your anon key
+    const AUTH_HEADER = "Bearer YOUR_ANON_KEY"; // Replace with your public anon key
 
     const tables = [
       "clients",
@@ -98,87 +94,61 @@
     ];
 
     const tableSelect = document.getElementById("tableSelect");
-    const cardsContainer = document.getElementById("cardsContainer");
+    const loader = document.getElementById("loader");
+    const cardContainer = document.getElementById("cardContainer");
 
-    tables.forEach(t => {
-      const opt = document.createElement("option");
-      opt.value = t;
-      opt.innerText = t;
-      tableSelect.appendChild(opt);
-    });
+    let cache = {};
 
-    window.loadTable = async () => {
-      const table = tableSelect.value;
-      const res = await fetch(`${API_BASE}?table=${table}`, {
-        method: "GET",
-        headers: { "Authorization": AUTH_HEADER },
-        mode: "cors"
-      });
-      const data = await res.json();
-      renderCards(data, table);
+    const formatValue = (key, value) => {
+      if (!value) return "";
+      if (typeof value === "object") return JSON.stringify(value);
+      if (key.includes("created_at") || key.includes("updated_at")) {
+        return new Date(value).toLocaleString();
+      }
+      return value;
     };
 
-    function formatDate(dateStr) {
-      const d = new Date(dateStr);
-      return d.toLocaleString();
-    }
+    const renderCard = (item, table) => {
+      const card = document.createElement("div");
+      card.className = "card";
 
-    function renderCards(data, table) {
-      cardsContainer.innerHTML = "";
-      if (!Array.isArray(data)) return;
+      const header = document.createElement("div");
+      header.className = "card-header";
 
-      data.forEach(row => {
-        const card = document.createElement("div");
-        card.className = "crm-card";
+      header.innerHTML = `
+        <div>
+          <strong>${table} entry</strong><br>
+          <small>ID: ${item.id}</small>
+        </div>
+        <select class="action-menu" onchange="handleAction(this, '${item.id}', '${table}')">
+          <option value="">Actions</option>
+          <option value="edit">Edit</option>
+          <option value="delete">Delete</option>
+        </select>
+      `;
 
-        const header = document.createElement("div");
-        header.className = "crm-header";
+      const fields = document.createElement("div");
+      fields.className = "card-fields";
 
-        const idLabel = document.createElement("div");
-        idLabel.innerHTML = `<strong>${table} Entry</strong><br><small>ID: ${row.id}</small>`;
-
-        const actions = document.createElement("div");
-        actions.className = "crm-actions";
-        actions.innerHTML = `
-          <select onchange="handleAction(this, '${row.id}', '${table}')">
-            <option value="">Actions</option>
-            <option value="edit">Edit</option>
-            <option value="delete">Delete</option>
-          </select>`;
-
-        header.appendChild(idLabel);
-        header.appendChild(actions);
-
-        const body = document.createElement("div");
-        body.className = "crm-row";
-
-        Object.entries(row).forEach(([key, value]) => {
-          if (key === "id") return;
-          const field = document.createElement("div");
-          field.className = "crm-field";
-          field.innerHTML = `
-            <label>${key}</label>
-            <input type="text" value="${formatField(key, value)}" readonly />`;
-          body.appendChild(field);
-        });
-
-        card.appendChild(header);
-        card.appendChild(body);
-        cardsContainer.appendChild(card);
+      Object.entries(item).forEach(([key, value]) => {
+        if (key === "id") return;
+        const field = document.createElement("div");
+        field.className = "field";
+        field.innerHTML = `
+          <label>${key}</label>
+          <div class="field-value">${formatValue(key, value)}</div>
+        `;
+        fields.appendChild(field);
       });
-    }
 
-    function formatField(key, value) {
-      if (value === null || value === undefined) return "";
-      if (key.includes("created_at") || key.includes("updated_at")) return formatDate(value);
-      if (typeof value === 'object') return JSON.stringify(value);
-      return value;
-    }
+      card.appendChild(header);
+      card.appendChild(fields);
+      return card;
+    };
 
     window.handleAction = async (selectEl, id, table) => {
       const action = selectEl.value;
-      selectEl.value = ""; // Reset dropdown
-
+      selectEl.value = "";
       if (action === "delete") {
         await fetch(`${API_BASE}?table=${table}`, {
           method: "DELETE",
@@ -188,14 +158,55 @@
           },
           body: JSON.stringify({ match: { id } })
         });
-        loadTable();
+        loadTable(table); // Reload after delete
+      }
+      if (action === "edit") {
+        alert("Edit coming soon...");
+      }
+    };
+
+    const loadTable = async (table) => {
+      loader.style.display = "block";
+      cardContainer.innerHTML = "";
+
+      if (cache[table]) {
+        renderCards(cache[table], table);
+        loader.style.display = "none";
+        return;
       }
 
-      if (action === "edit") {
-        alert(`Editing not yet implemented (coming soon)`);
-        // Placeholder for inline or modal editing
-      }
-    }
+      const res = await fetch(`${API_BASE}?table=${table}`, {
+        headers: { "Authorization": AUTH_HEADER }
+      });
+      const data = await res.json();
+      cache[table] = data.slice(0, 50);
+      renderCards(cache[table], table);
+      loader.style.display = "none";
+    };
+
+    const renderCards = (data, table) => {
+      cardContainer.innerHTML = "";
+      data.forEach(row => {
+        cardContainer.appendChild(renderCard(row, table));
+      });
+    };
+
+    // Init
+    tables.forEach(t => {
+      const opt = document.createElement("option");
+      opt.value = t;
+      opt.innerText = t;
+      tableSelect.appendChild(opt);
+    });
+
+    tableSelect.addEventListener("change", () => {
+      loadTable(tableSelect.value);
+    });
+
+    // Load first table on start
+    loadTable(tables[0]);
+    tableSelect.value = tables[0];
   </script>
 </body>
+</html>
 </html>
